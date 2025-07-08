@@ -1,0 +1,127 @@
+#!/bin/bash
+blocks=(" " "▏" "▎" "▍" "▌" "▋" "▊" "▉" "█")
+declare -i sleep i j
+declare -i seconds rest n
+c=""
+prev_track=""
+COLUMNS=${COLUMNS:-80}  # Default to 80 if COLUMNS is unset
+set -e -u -o pipefail
+show_countdown=false
+channel="fip"
+channel_name=""
+restore="0"
+PARSED=$(getopt -o terjgpmnialfxh --long time,electro,rock,jazz,groove,pop,monde,nouveaute,hiphop,reggae,metal,restore,help -- "$@")
+if [[ $? -ne 0 ]]; then
+	exit 1
+fi
+eval set -- "$PARSED"
+while true; do
+	case "$1" in
+		-t|--time) show_countdown=true; shift ;;
+		-e|--electro) channel="fip_electro"; channel_name="Electro"; shift ;;
+		-r|--rock) channel="fip_rock"; channel_name="Rock"; shift ;;
+		-j|--jazz) channel="fip_jazz"; channel_name="Jazz"; shift ;;
+		-g|--groove) channel="fip_groove"; channel_name="Groove"; shift ;;
+		-p|--pop) channel="fip_pop"; channel_name="Pop"; shift ;;
+		-m|--monde) channel="fip_world"; channel_name="Monde"; shift ;;
+		-n|--nouveaute) channel="fip_nouveautes"; channel_name="Nouveauté"; shift ;;
+		-i|--hiphop) channel="fip_hiphop"; channel_name="Hip-Hop"; shift ;;
+		-a|--reggae) channel="fip_reggae"; channel_name="Reggae"; shift ;;
+		-l|--metal) channel="fip_metal"; channel_name="Metal"; shift ;;
+		-f|--sacre-francais) channel="fip_sacre_francais"; channel_name="Sacré Français !"; shift ;;
+		-x|--restore) restore="1"; shift ;;
+		-h|--help) echo -e "Display the current playing song on FIP\nfip-now [ -t --time ] [ -h --help ] [ -x --restore ] [ -e --electro ] [ -r --rock ] [ -j --jazz ] [ -g --groove ] [ -p --pop ] [ -m --monde ] [ -n --nouveaute ] [ -i --hiphop ] [ -a --reggae ] [ -l --metal ] [ -f --sacre-francais ]"; exit 0 ;;
+		--) shift; break ;;
+		*) echo "Invalid option: $1"; exit 1 ;;
+	esac
+done
+clear_eol=$(tput el)
+cursor_up=$(tput cuu1)
+titlecolor=$(tput bold)$(tput setaf 1)
+labelcolor=$(tput setaf 2)
+artistcolor=$(tput bold)$(tput setaf 4)
+reset=$(tput op)$(tput sgr0)
+if [[ $restore == 1 ]] then
+	if output=$(mpc current); then
+		if echo "$output" | grep -q "fip"; then
+			if echo "$output" | grep -q "electro"; then
+				fip-x --electro
+			elif echo "$output" | grep -q "rock"; then
+				fip-x --rock
+			elif echo "$output" | grep -q "jazz"; then
+				fip-x --jazz
+			elif echo "$output" | grep -q "groove"; then
+				fip-x --groove
+			elif echo "$output" | grep -q "pop"; then
+				fip-x --pop
+			elif echo "$output" | grep -q "world"; then
+				fip-x --monde
+			elif echo "$output" | grep -q "nouveaute"; then
+				fip-x nouveaute
+			elif echo "$output" | grep -q "hiphop"; then
+				fip-x --hiphop
+			elif echo "$output" | grep -q "reggae"; then
+				fip-x --reggae
+			elif echo "$output" | grep -q "metal"; then
+				fip-x --metal
+			elif echo "$output" | grep -q "sacre"; then
+				fip-x --sacre-francais
+			else
+				fip-x
+			fi
+		fi
+	fi
+	exit 0
+fi
+while [[ "$c" != "q" ]]; do
+	data=$(curl -f -s "https://www.radiofrance.fr/fip/api/live?webradio=$channel")
+	if [ $? != 0 ]; then
+		title="(Download error)"
+		artist=
+		year=
+		album=
+		sleep=5
+	else
+		title=$(jshon -QC -e now -e firstLine -e title -u <<<$data)
+		artist=$(jshon -QC -e now -e secondLine -e title -u <<<$data)
+		year=$(jshon -QC -e now -e song -e year -u <<<$data)
+		album=$(jshon -QC -e now -e song -e release -e title -u <<<$data)
+		image=$(jshon -QC -e now -e visuals -e card -e src -u <<<$data)
+		delayToRefresh=$(jshon -QC -e delayToRefresh -u <<<$data)
+		sleep=$(dc <<<"$delayToRefresh 1000/p")
+	fi
+	track="$artist - $title"
+	formatted_album="${album// /-}"
+	if [[ "$track" != "$prev_track" ]]; then
+		notify-send "🎵 Now Playing on FIP $channel_name" "$track"
+		prev_track="$track"
+	fi
+	wget -qO /home/martino/.fip/$formatted_album.webp $image/288x288
+	magick /home/martino/.fip/$formatted_album.webp /home/martino/.fip/$formatted_album.jpg && rm /home/martino/.fip/$formatted_album.webp
+	title=${title:0:$((COLUMNS - 10))}
+	artist=${artist:0:$((COLUMNS - 10))}
+	album=${album:0:$((COLUMNS - 10))}
+	year=${year:0:$((COLUMNS - 10))}
+	echo "  ${labelcolor}Title:$reset  $titlecolor$title$reset$clear_eol"
+	echo " ${labelcolor}Artist:$reset  $artistcolor$artist$reset$clear_eol"
+	echo "  ${labelcolor}Album:$reset  $album$clear_eol"
+	echo "   ${labelcolor}Year:$reset  $year$clear_eol"
+	feh /home/martino/.fip/$formatted_album.jpg &
+	seconds=10#$sleep
+	((seconds += SECONDS + 2))
+	while ((SECONDS < seconds)) && [[ "$c" != "q" ]]; do
+		if $show_countdown; then
+			((n = seconds / 8))
+			((rest = seconds % 8))
+			if ((n >= COLUMNS)); then ((n = COLUMNS - 1)); ((rest = 8)); fi
+			printf "%*d:%02d\r" $((COLUMNS - 3)) $((seconds / 60)) $((seconds % 60))
+			while ((n > 0)); do echo -n "█"; ((n--)); done
+			echo -e "${blocks[$rest]}\r\c"
+		fi
+		read -n 1 -t 1 -s c || true
+	done
+	if [[ "$c" != "q" ]]; then
+		echo -n "$cursor_up$cursor_up$cursor_up$cursor_up"
+	fi
+done
+echo
