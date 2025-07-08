@@ -9,7 +9,6 @@ set -e -u -o pipefail
 show_countdown=false
 channel="fip"
 channel_name=""
-restore="0"
 PARSED=$(getopt -o terjgpmnialfxh --long time,electro,rock,jazz,groove,pop,monde,nouveaute,hiphop,reggae,metal,restore,help -- "$@")
 if [[ $? -ne 0 ]]; then
 	exit 1
@@ -29,7 +28,6 @@ while true; do
 		-a|--reggae) channel="fip_reggae"; channel_name="Reggae"; shift ;;
 		-l|--metal) channel="fip_metal"; channel_name="Metal"; shift ;;
 		-f|--sacre-francais) channel="fip_sacre_francais"; channel_name="Sacré Français !"; shift ;;
-		-x|--restore) restore="1"; shift ;;
 		-h|--help) echo -e "Display the current playing song on FIP\nfip-now [ -t --time ] [ -h --help ] [ -x --restore ] [ -e --electro ] [ -r --rock ] [ -j --jazz ] [ -g --groove ] [ -p --pop ] [ -m --monde ] [ -n --nouveaute ] [ -i --hiphop ] [ -a --reggae ] [ -l --metal ] [ -f --sacre-francais ]"; exit 0 ;;
 		--) shift; break ;;
 		*) echo "Invalid option: $1"; exit 1 ;;
@@ -41,38 +39,6 @@ titlecolor=$(tput bold)$(tput setaf 1)
 labelcolor=$(tput setaf 2)
 artistcolor=$(tput bold)$(tput setaf 4)
 reset=$(tput op)$(tput sgr0)
-if [[ $restore == 1 ]] then
-	if output=$(mpc current); then
-		if echo "$output" | grep -q "fip"; then
-			if echo "$output" | grep -q "electro"; then
-				fip-x --electro
-			elif echo "$output" | grep -q "rock"; then
-				fip-x --rock
-			elif echo "$output" | grep -q "jazz"; then
-				fip-x --jazz
-			elif echo "$output" | grep -q "groove"; then
-				fip-x --groove
-			elif echo "$output" | grep -q "pop"; then
-				fip-x --pop
-			elif echo "$output" | grep -q "world"; then
-				fip-x --monde
-			elif echo "$output" | grep -q "nouveaute"; then
-				fip-x nouveaute
-			elif echo "$output" | grep -q "hiphop"; then
-				fip-x --hiphop
-			elif echo "$output" | grep -q "reggae"; then
-				fip-x --reggae
-			elif echo "$output" | grep -q "metal"; then
-				fip-x --metal
-			elif echo "$output" | grep -q "sacre"; then
-				fip-x --sacre-francais
-			else
-				fip-x
-			fi
-		fi
-	fi
-	exit 0
-fi
 while [[ "$c" != "q" ]]; do
 	data=$(curl -f -s "https://www.radiofrance.fr/fip/api/live?webradio=$channel")
 	if [ $? != 0 ]; then
@@ -96,8 +62,8 @@ while [[ "$c" != "q" ]]; do
 		notify-send "🎵 Now Playing on FIP $channel_name" "$track"
 		prev_track="$track"
 	fi
-	wget -qO /home/martino/.fip/$formatted_album.webp $image/288x288
-	magick /home/martino/.fip/$formatted_album.webp /home/martino/.fip/$formatted_album.jpg && rm /home/martino/.fip/$formatted_album.webp
+	wget -qO ~/.fip/$formatted_album.webp $image/288x288
+	magick ~/.fip/$formatted_album.webp ~/.fip/$formatted_album.jpg && rm ~/.fip/$formatted_album.webp
 	title=${title:0:$((COLUMNS - 10))}
 	artist=${artist:0:$((COLUMNS - 10))}
 	album=${album:0:$((COLUMNS - 10))}
@@ -106,7 +72,7 @@ while [[ "$c" != "q" ]]; do
 	echo " ${labelcolor}Artist:$reset  $artistcolor$artist$reset$clear_eol"
 	echo "  ${labelcolor}Album:$reset  $album$clear_eol"
 	echo "   ${labelcolor}Year:$reset  $year$clear_eol"
-	feh /home/martino/.fip/$formatted_album.jpg &
+	feh ~/.fip/$formatted_album.jpg &
 	seconds=10#$sleep
 	((seconds += SECONDS + 2))
 	while ((SECONDS < seconds)) && [[ "$c" != "q" ]]; do
