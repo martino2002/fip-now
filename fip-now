@@ -9,7 +9,7 @@ set -e -u -o pipefail
 show_countdown=false
 channel="fip"
 channel_name=""
-PARSED=$(getopt -o terjgpmnialfxh --long time,electro,rock,jazz,groove,pop,monde,nouveaute,hiphop,reggae,metal,restore,help -- "$@")
+PARSED=$(getopt -o terjgpmnialfh --long time,electro,rock,jazz,groove,pop,monde,nouveaute,hiphop,reggae,metal,help -- "$@")
 if [[ $? -ne 0 ]]; then
 	exit 1
 fi
@@ -28,7 +28,7 @@ while true; do
 		-a|--reggae) channel="fip_reggae"; channel_name="Reggae"; shift ;;
 		-l|--metal) channel="fip_metal"; channel_name="Metal"; shift ;;
 		-f|--sacre-francais) channel="fip_sacre_francais"; channel_name="Sacré Français !"; shift ;;
-		-h|--help) echo -e "Display the current playing song on FIP\nfip-now [ -t --time ] [ -h --help ] [ -x --restore ] [ -e --electro ] [ -r --rock ] [ -j --jazz ] [ -g --groove ] [ -p --pop ] [ -m --monde ] [ -n --nouveaute ] [ -i --hiphop ] [ -a --reggae ] [ -l --metal ] [ -f --sacre-francais ]"; exit 0 ;;
+		-h|--help) echo -e "Display the current playing song on FIP\nfip-now [ -t --time ] [ -h --help ] [ -e --electro ] [ -r --rock ] [ -j --jazz ] [ -g --groove ] [ -p --pop ] [ -m --monde ] [ -n --nouveaute ] [ -i --hiphop ] [ -a --reggae ] [ -l --metal ] [ -f --sacre-francais ]"; exit 0 ;;
 		--) shift; break ;;
 		*) echo "Invalid option: $1"; exit 1 ;;
 	esac
@@ -48,12 +48,12 @@ while [[ "$c" != "q" ]]; do
 		album=
 		sleep=5
 	else
-		title=$(jshon -QC -e now -e firstLine -e title -u <<<$data)
-		artist=$(jshon -QC -e now -e secondLine -e title -u <<<$data)
-		year=$(jshon -QC -e now -e song -e year -u <<<$data)
-		album=$(jshon -QC -e now -e song -e release -e title -u <<<$data)
-		image=$(jshon -QC -e now -e visuals -e card -e src -u <<<$data)
-		delayToRefresh=$(jshon -QC -e delayToRefresh -u <<<$data)
+		title=$(echo "$data" | jq -r '.now.firstLine.title')
+		artist=$(echo "$data" | jq -r '.now.secondLine.title')
+		year=$(echo "$data" | jq -r '.now.song.year')
+		album=$(echo "$data" | jq -r '.now.song.release.title')
+		image=$(echo "$data" | jq -r '.now.visuals.card.src')
+		delayToRefresh=$(echo "$data" | jq -r '.delayToRefresh')
 		sleep=$(dc <<<"$delayToRefresh 1000/p")
 	fi
 	track="$artist - $title"
