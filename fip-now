@@ -52,18 +52,14 @@ while [[ "$c" != "q" ]]; do
 		artist=$(echo "$data" | jq -r '.now.secondLine.title')
 		year=$(echo "$data" | jq -r '.now.song.year')
 		album=$(echo "$data" | jq -r '.now.song.release.title')
-		image=$(echo "$data" | jq -r '.now.visuals.card.src')
 		delayToRefresh=$(echo "$data" | jq -r '.delayToRefresh')
 		sleep=$(dc <<<"$delayToRefresh 1000/p")
 	fi
 	track="$artist - $title"
-	formatted_album="${album// /-}"
 	if [[ "$track" != "$prev_track" ]]; then
 		notify-send "🎵 Now Playing on FIP $channel_name" "$track"
 		prev_track="$track"
 	fi
-	wget -qO ~/.fip/$formatted_album.webp $image/288x288
-	magick ~/.fip/$formatted_album.webp ~/.fip/$formatted_album.jpg && rm ~/.fip/$formatted_album.webp
 	title=${title:0:$((COLUMNS - 10))}
 	artist=${artist:0:$((COLUMNS - 10))}
 	album=${album:0:$((COLUMNS - 10))}
@@ -72,7 +68,6 @@ while [[ "$c" != "q" ]]; do
 	echo " ${labelcolor}Artist:$reset  $artistcolor$artist$reset$clear_eol"
 	echo "  ${labelcolor}Album:$reset  $album$clear_eol"
 	echo "   ${labelcolor}Year:$reset  $year$clear_eol"
-	feh ~/.fip/$formatted_album.jpg &
 	seconds=10#$sleep
 	((seconds += SECONDS + 2))
 	while ((SECONDS < seconds)) && [[ "$c" != "q" ]]; do
